@@ -49,16 +49,16 @@
 #include <DS3232RTC.h>
 
 // DS3232 I2C Address
-#define RTC_ADDR 0x68
+#define DS3232RTC_ADDR 0x68
 
 // DS3232 Register Addresses
-#define RTC_SECONDS 0x00
-#define RTC_MINUTES 0x01
-#define RTC_HOURS 0x02
-#define RTC_DAY 0x03
-#define RTC_DATE 0x04
-#define RTC_MONTH 0x05
-#define RTC_YEAR 0x06
+#define DS3232RTC_SECONDS 0x00
+#define DS3232RTC_MINUTES 0x01
+#define DS3232RTC_HOURS 0x02
+#define DS3232RTC_DAY 0x03
+#define DS3232RTC_DATE 0x04
+#define DS3232RTC_MONTH 0x05
+#define DS3232RTC_YEAR 0x06
 #define ALM1_SECONDS 0x07
 #define ALM1_MINUTES 0x08
 #define ALM1_HOURS 0x09
@@ -66,11 +66,11 @@
 #define ALM2_MINUTES 0x0B
 #define ALM2_HOURS 0x0C
 #define ALM2_DAYDATE 0x0D
-#define RTC_CONTROL 0x0E
-#define RTC_STATUS 0x0F
-#define RTC_AGING 0x10
-#define RTC_TEMP_MSB 0x11
-#define RTC_TEMP_LSB 0x12
+#define DS3232RTC_CONTROL 0x0E
+#define DS3232RTC_STATUS 0x0F
+#define DS3232RTC_AGING 0x10
+#define DS3232RTC_TEMP_MSB 0x11
+#define DS3232RTC_TEMP_LSB 0x12
 #define SRAM_START_ADDR 0x14    // first SRAM address
 #define SRAM_SIZE 236           // number of bytes of SRAM
 
@@ -151,11 +151,11 @@ byte DS3232RTC::set(time_t t)
 // structure. Returns the I2C status (zero if successful).
 byte DS3232RTC::read(tmElements_t &tm)
 {
-    i2cBeginTransmission(RTC_ADDR);
-    i2cWrite((uint8_t)RTC_SECONDS);
+    i2cBeginTransmission(DS3232RTC_ADDR);
+    i2cWrite((uint8_t)DS3232RTC_SECONDS);
     if ( byte e = i2cEndTransmission() ) { errCode = e; return e; }
     // request 7 bytes (secs, min, hr, dow, date, mth, yr)
-    i2cRequestFrom(RTC_ADDR, tmNbrFields);
+    i2cRequestFrom(DS3232RTC_ADDR, tmNbrFields);
     tm.Second = bcd2dec(i2cRead() & ~_BV(DS1307_CH));
     tm.Minute = bcd2dec(i2cRead());
     tm.Hour = bcd2dec(i2cRead() & ~_BV(HR1224));    // assumes 24hr clock
@@ -171,8 +171,8 @@ byte DS3232RTC::read(tmElements_t &tm)
 // Returns the I2C status (zero if successful).
 byte DS3232RTC::write(tmElements_t &tm)
 {
-    i2cBeginTransmission(RTC_ADDR);
-    i2cWrite((uint8_t)RTC_SECONDS);
+    i2cBeginTransmission(DS3232RTC_ADDR);
+    i2cWrite((uint8_t)DS3232RTC_SECONDS);
     i2cWrite(dec2bcd(tm.Second));
     i2cWrite(dec2bcd(tm.Minute));
     i2cWrite(dec2bcd(tm.Hour));         // sets 24 hour format (Bit 6 == 0)
@@ -181,8 +181,8 @@ byte DS3232RTC::write(tmElements_t &tm)
     i2cWrite(dec2bcd(tm.Month));
     i2cWrite(dec2bcd(tmYearToY2k(tm.Year)));
     byte ret = i2cEndTransmission();
-    uint8_t s = readRTC(RTC_STATUS);        // read the status register
-    writeRTC( RTC_STATUS, s & ~_BV(OSF) );  // clear the Oscillator Stop Flag
+    uint8_t s = readRTC(DS3232RTC_STATUS);        // read the status register
+    writeRTC( DS3232RTC_STATUS, s & ~_BV(OSF) );  // clear the Oscillator Stop Flag
     return ret;
 }
 
@@ -193,7 +193,7 @@ byte DS3232RTC::write(tmElements_t &tm)
 // Returns the I2C status (zero if successful).
 byte DS3232RTC::writeRTC(byte addr, byte *values, byte nBytes)
 {
-    i2cBeginTransmission(RTC_ADDR);
+    i2cBeginTransmission(DS3232RTC_ADDR);
     i2cWrite(addr);
     for (byte i=0; i<nBytes; i++) i2cWrite(values[i]);
     return i2cEndTransmission();
@@ -214,10 +214,10 @@ byte DS3232RTC::writeRTC(byte addr, byte value)
 // Returns the I2C status (zero if successful).
 byte DS3232RTC::readRTC(byte addr, byte *values, byte nBytes)
 {
-    i2cBeginTransmission(RTC_ADDR);
+    i2cBeginTransmission(DS3232RTC_ADDR);
     i2cWrite(addr);
     if ( byte e = i2cEndTransmission() ) return e;
-    i2cRequestFrom( (uint8_t)RTC_ADDR, nBytes );
+    i2cRequestFrom( (uint8_t)DS3232RTC_ADDR, (size_t)nBytes );
     for (byte i=0; i<nBytes; i++) values[i] = i2cRead();
     return 0;
 }
@@ -283,24 +283,24 @@ void DS3232RTC::alarmInterrupt(byte alarmNumber, bool interruptEnabled)
 {
     uint8_t controlReg, mask;
 
-    controlReg = readRTC(RTC_CONTROL);
+    controlReg = readRTC(DS3232RTC_CONTROL);
     mask = _BV(A1IE) << (alarmNumber - 1);
     if (interruptEnabled)
         controlReg |= mask;
     else
         controlReg &= ~mask;
-    writeRTC(RTC_CONTROL, controlReg);
+    writeRTC(DS3232RTC_CONTROL, controlReg);
 }
 
 // Returns true or false depending on whether the given alarm has been
 // triggered, and resets the alarm flag bit.
 bool DS3232RTC::alarm(byte alarmNumber)
 {
-    uint8_t statusReg = readRTC(RTC_STATUS);
+    uint8_t statusReg = readRTC(DS3232RTC_STATUS);
     uint8_t mask = _BV(A1F) << (alarmNumber - 1);
     if (statusReg & mask) {
         statusReg &= ~mask;
-        writeRTC(RTC_STATUS, statusReg);
+        writeRTC(DS3232RTC_STATUS, statusReg);
         return true;
     }
     else {
@@ -312,7 +312,7 @@ bool DS3232RTC::alarm(byte alarmNumber)
 // triggered, without resetting the alarm flag bit.
 bool DS3232RTC::checkAlarm(byte alarmNumber)
 {
-    uint8_t statusReg = readRTC(RTC_STATUS);
+    uint8_t statusReg = readRTC(DS3232RTC_STATUS);
     uint8_t mask = _BV(A1F) << (alarmNumber - 1);
     return (statusReg & mask);
 }
@@ -321,12 +321,12 @@ bool DS3232RTC::checkAlarm(byte alarmNumber)
 // Returns the value of the flag bit before if was cleared.
 bool DS3232RTC::clearAlarm(byte alarmNumber)
 {
-    uint8_t statusReg = readRTC(RTC_STATUS);
+    uint8_t statusReg = readRTC(DS3232RTC_STATUS);
     uint8_t mask = _BV(A1F) << (alarmNumber - 1);
     bool retVal = statusReg & mask;
     if (retVal) {
         statusReg &= ~mask;
-        writeRTC(RTC_STATUS, statusReg);
+        writeRTC(DS3232RTC_STATUS, statusReg);
     }
     return retVal;
 }
@@ -337,7 +337,7 @@ void DS3232RTC::squareWave(SQWAVE_FREQS_t freq)
 {
     uint8_t controlReg;
 
-    controlReg = readRTC(RTC_CONTROL);
+    controlReg = readRTC(DS3232RTC_CONTROL);
     if (freq >= SQWAVE_NONE)
     {
         controlReg |= _BV(INTCN);
@@ -346,7 +346,7 @@ void DS3232RTC::squareWave(SQWAVE_FREQS_t freq)
     {
         controlReg = (controlReg & 0xE3) | (freq << RS1);
     }
-    writeRTC(RTC_CONTROL, controlReg);
+    writeRTC(DS3232RTC_CONTROL, controlReg);
 }
 
 // Returns the value of the oscillator stop flag (OSF) bit in the
@@ -355,11 +355,11 @@ void DS3232RTC::squareWave(SQWAVE_FREQS_t freq)
 // Optionally clears the OSF bit depending on the argument passed.
 bool DS3232RTC::oscStopped(bool clearOSF)
 {
-    uint8_t s = readRTC(RTC_STATUS);    // read the status register
+    uint8_t s = readRTC(DS3232RTC_STATUS);    // read the status register
     bool ret = s & _BV(OSF);            // isolate the osc stop flag to return to caller
     if (ret && clearOSF)                // clear OSF if it's set and the caller wants to clear it
     {
-        writeRTC( RTC_STATUS, s & ~_BV(OSF) );
+        writeRTC( DS3232RTC_STATUS, s & ~_BV(OSF) );
     }
     return ret;
 }
@@ -372,8 +372,8 @@ int16_t DS3232RTC::temperature()
         byte b[2];
     } rtcTemp;
 
-    rtcTemp.b[0] = readRTC(RTC_TEMP_LSB);
-    rtcTemp.b[1] = readRTC(RTC_TEMP_MSB);
+    rtcTemp.b[0] = readRTC(DS3232RTC_TEMP_LSB);
+    rtcTemp.b[1] = readRTC(DS3232RTC_TEMP_MSB);
     return rtcTemp.i / 64;
 }
 
